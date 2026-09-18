@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MangaWeb - Baca Komik & Manga Gratis</title>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Baca Manga, Manhwa, dan Manhua terjemahan Bahasa Indonesia terlengkap dan terupdate dengan antarmuka yang cepat dan tanpa iklan mengganggu.">
+    <meta name="keywords" content="baca manga, komik indonesia, manhwa, manhua, mangadex, komik gratis">
+    <meta name="author" content="YourName">
+    <meta property="og:title" content="MangaWeb - Portal Baca Komik">
+    <meta property="og:description" content="Platform baca komik super cepat dan responsif.">
+    <meta property="og:type" content="website">
+
+    <!-- Tailwind CSS (CDN untuk GitHub Pages) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* Custom Styling agar lebih profesional */
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #e2e8f0; }
+        .manga-card:hover .overlay { opacity: 1; }
+        .glass-nav { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(10px); border-bottom: 1px solid #1e293b; }
+        /* Loader Animation */
+        .loader { border-top-color: #3b82f6; -webkit-animation: spinner 1.5s linear infinite; animation: spinner 1.5s linear infinite; }
+        @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col">
+
+    <!-- Navigasi -->
+    <nav class="glass-nav fixed w-full z-50 top-0 transition-all">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <a href="?" class="flex items-center gap-2 cursor-pointer">
+                    <i class="fas fa-book-open text-blue-500 text-2xl"></i>
+                    <span class="font-bold text-xl tracking-wider text-white">Manga<span class="text-blue-500">Web</span></span>
+                </a>
+                <div class="hidden md:flex space-x-6 items-center">
+                    <a href="?" class="hover:text-blue-400 transition">Beranda</a>
+                    <a href="#" class="hover:text-blue-400 transition">Populer</a>
+                    <a href="#" class="hover:text-blue-400 transition">Terbaru</a>
+                    <div class="relative">
+                        <input type="text" placeholder="Cari komik..." class="bg-gray-800 text-sm rounded-full pl-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-700">
+                        <i class="fas fa-search absolute right-3 top-2.5 text-gray-400"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Container -->
+    <main id="app" class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12 w-full">
+        <!-- Konten akan diinjeksi oleh JavaScript di sini -->
+        <div class="flex justify-center items-center h-64">
+            <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-700 h-12 w-12 mb-4"></div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 border-t border-gray-800 py-8 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 text-center text-gray-400 text-sm">
+            <p>&copy; 2026 MangaWeb. Data provided by MangaDex API.</p>
+            <p class="mt-2 text-xs text-gray-500">Website ini merupakan front-end penampil yang tidak menghosting file gambar di server secara langsung.</p>
+        </div>
+    </footer>
+
+    <!-- Logika Aplikasi -->
+    <script src="app.js"></script>
+</body>
+</html>
