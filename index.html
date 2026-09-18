@@ -23,6 +23,13 @@
         body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #e2e8f0; }
         .manga-card:hover .overlay { opacity: 1; }
         .glass-nav { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(10px); border-bottom: 1px solid #1e293b; }
+        
+        /* Custom Scrollbar untuk kotak yang bisa di-scroll */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #1f2937; border-radius: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
+
         /* Loader Animation */
         .loader { border-top-color: #3b82f6; -webkit-animation: spinner 1.5s linear infinite; animation: spinner 1.5s linear infinite; }
         @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -34,19 +41,44 @@
     <nav class="glass-nav fixed w-full z-50 top-0 transition-all">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
+                <!-- Logo -->
                 <a href="?" class="flex items-center gap-2 cursor-pointer">
                     <i class="fas fa-book-open text-blue-500 text-2xl"></i>
                     <span class="font-bold text-xl tracking-wider text-white">Manga<span class="text-blue-500">Web</span></span>
                 </a>
+                
+                <!-- Menu Kanan (Desktop) -->
                 <div class="hidden md:flex space-x-6 items-center">
                     <a href="?" class="hover:text-blue-400 transition">Beranda</a>
-                    <a href="#" class="hover:text-blue-400 transition">Populer</a>
-                    <a href="#" class="hover:text-blue-400 transition">Terbaru</a>
-                    <div class="relative">
-                        <input type="text" placeholder="Cari komik..." class="bg-gray-800 text-sm rounded-full pl-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-700">
-                        <i class="fas fa-search absolute right-3 top-2.5 text-gray-400"></i>
-                    </div>
+                    <a href="?view=popular" class="hover:text-blue-400 transition">Populer</a>
+                    <a href="?view=latest" class="hover:text-blue-400 transition">Terbaru</a>
+                    
+                    <!-- Search Form -->
+                    <form id="searchForm" class="relative" onsubmit="event.preventDefault(); submitSearch();">
+                        <input type="text" id="searchInput" placeholder="Cari komik..." class="bg-gray-800 text-sm rounded-full pl-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-700 w-full sm:w-auto">
+                        <button type="submit" class="absolute right-3 top-2.5 text-gray-400 hover:text-white"><i class="fas fa-search"></i></button>
+                    </form>
                 </div>
+
+                <!-- Hamburger Menu Icon (Mobile) -->
+                <div class="md:hidden flex items-center">
+                    <button class="text-gray-400 hover:text-white focus:outline-none" onclick="document.getElementById('mobileMenu').classList.toggle('hidden')">
+                        <i class="fas fa-bars text-2xl"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mobile Menu (Tersembunyi secara default) -->
+        <div id="mobileMenu" class="hidden md:hidden bg-gray-900 border-t border-gray-800">
+            <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+                <a href="?" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-800 hover:text-blue-400">Beranda</a>
+                <a href="?view=popular" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-800 hover:text-blue-400">Populer</a>
+                <a href="?view=latest" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-800 hover:text-blue-400">Terbaru</a>
+                <form class="relative mt-3 px-3" onsubmit="event.preventDefault(); submitSearchMobile();">
+                    <input type="text" id="searchInputMobile" placeholder="Cari komik..." class="bg-gray-800 text-sm rounded-full pl-4 pr-10 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-700">
+                    <button type="submit" class="absolute right-6 top-2.5 text-gray-400 hover:text-white"><i class="fas fa-search"></i></button>
+                </form>
             </div>
         </div>
     </nav>
@@ -69,5 +101,12 @@
 
     <!-- Logika Aplikasi -->
     <script src="app.js"></script>
+    <script>
+        // Handler Mobile Search
+        function submitSearchMobile() {
+            const query = document.getElementById('searchInputMobile').value.trim();
+            if(query) window.location.href = `?search=${encodeURIComponent(query)}`;
+        }
+    </script>
 </body>
 </html>
