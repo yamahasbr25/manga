@@ -1,6 +1,6 @@
-// --- KONFIGURASI API & PROXY ---
-// Menggunakan proxy untuk membypass blokir ISP / Internet Positif
-const PROXY_URL = 'https://corsproxy.io/?';
+// --- KONFIGURASI API & PROXY CLOUDFLARE ---
+// Menggunakan proxy Cloudflare Worker pribadi Anda untuk performa maksimal & anti-blokir
+const PROXY_URL = 'https://manga-proxy.yamahasbr25.workers.dev/?url=';
 const BASE_API = 'https://api.mangadex.org';
 const BASE_UPLOAD = 'https://uploads.mangadex.org';
 const appContainer = document.getElementById('app');
@@ -13,6 +13,7 @@ const chapterId = urlParams.get('chapter');
 // Helper Fetch Data dengan Proxy & Encode URI
 async function fetchApi(endpoint) {
     const targetUrl = endpoint.startsWith('http') ? endpoint : `${BASE_API}${endpoint}`;
+    // Encode komponen URL agar parameter & karakter khusus terbaca dengan benar oleh Cloudflare
     const proxiedUrl = PROXY_URL + encodeURIComponent(targetUrl);
     
     const response = await fetch(proxiedUrl);
@@ -51,13 +52,16 @@ async function init() {
                 <p class="text-sm text-gray-500 mt-2">Error: ${error.message}</p>
             </div>
         `;
-        console.error(error);
+        console.error("Detail Error:", error);
     }
 }
 
 // --- 1. HOMEPAGE (MENAMPILKAN MANGA TERBARU) ---
 async function renderHome() {
-    // Fetch Manga dengan cover_art dan terjemahan Bahasa Indonesia
+    // Menampilkan loader saat memuat data utama
+    appContainer.innerHTML = `<div class="flex justify-center items-center h-64"><div class="loader ease-linear rounded-full border-4 border-t-4 border-blue-500 h-12 w-12"></div></div>`;
+
+    // Fetch Manga dengan cover_art dan ketersediaan terjemahan Bahasa Indonesia
     const data = await fetchApi('/manga?includes[]=cover_art&availableTranslatedLanguage[]=id&order[createdAt]=desc&limit=16');
     
     let html = `
@@ -87,11 +91,11 @@ async function renderHome() {
 async function renderDetail(id) {
     appContainer.innerHTML = `<div class="flex justify-center items-center h-64"><div class="loader ease-linear rounded-full border-4 border-t-4 border-blue-500 h-12 w-12"></div></div>`;
 
-    // Fetch secara paralel agar loading lebih cepat
+    // Fetch API secara paralel agar loading lebih efisien
     const [mangaData, chapterData, relatedData] = await Promise.all([
         fetchApi(`/manga/${id}?includes[]=cover_art,author,artist`),
         fetchApi(`/manga/${id}/feed?translatedLanguage[]=id&order[chapter]=desc&limit=100`),
-        fetchApi('/manga?includes[]=cover_art&limit=5') // Simulasi related post
+        fetchApi('/manga?includes[]=cover_art&limit=5') // Rekomendasi/Related posts
     ]);
 
     const manga = mangaData.data;
@@ -99,12 +103,12 @@ async function renderDetail(id) {
     const desc = manga.attributes.description.id || manga.attributes.description.en || 'Tidak ada sinopsis tersedia.';
     const cover = getCoverUrl(manga);
     
-    // Badge Status
+    // Badge Status Manga
     const status = manga.attributes.status || 'Unknown';
     const statusColor = status === 'ongoing' ? 'bg-green-600' : 'bg-blue-600';
 
     let html = `
-        <!-- Detail Info -->
+        <!-- Detail Info Manga -->
         <div class="flex flex-col md:flex-row gap-8 bg-gray-800 p-6 rounded-xl shadow-lg mb-10">
             <img src="${cover}" alt="${title}" class="w-full md:w-64 rounded-lg shadow-md object-cover h-auto">
             <div class="flex-1">
@@ -147,7 +151,7 @@ async function renderDetail(id) {
                 </div>
             </div>
 
-            <!-- Related Posts -->
+            <!-- Related Posts / Rekomendasi -->
             <div>
                 <h2 class="text-xl font-bold mb-4 border-l-4 border-blue-500 pl-3">Rekomendasi Lainnya</h2>
                 <div class="space-y-4">
@@ -180,7 +184,7 @@ async function renderReader(chapterId) {
         </div>
     `;
     
-    // Fetch base URL gambar dari node server terdekat
+    // Fetch informasi server dari MangaDex untuk chapter yang dipilih
     const serverData = await fetchApi(`/at-home/server/${chapterId}`);
     
     const baseUrl = serverData.baseUrl;
@@ -198,7 +202,7 @@ async function renderReader(chapterId) {
     `;
 
     images.forEach(img => {
-        // Gabungkan base url dan hash, lalu bungkus dengan proxy agar gambar tidak diblokir
+        // Gabungkan base url, hash, dan nama file, lalu bungkus dengan proxy milik Anda
         const rawImgUrl = `${baseUrl}/data/${chapterHash}/${img}`;
         const proxiedImgUrl = PROXY_URL + encodeURIComponent(rawImgUrl);
         
