@@ -1,4 +1,5 @@
 // --- KONFIGURASI API & PROXY CLOUDFLARE ---
+// Menggunakan proxy Cloudflare Worker pribadi Anda
 const PROXY_URL = 'https://manga-proxy.yamahasbr25.workers.dev/?url=';
 const BASE_API = 'https://api.mangadex.org';
 const BASE_UPLOAD = 'https://uploads.mangadex.org';
@@ -7,6 +8,16 @@ const appContainer = document.getElementById('app');
 const urlParams = new URLSearchParams(window.location.search);
 const mangaId = urlParams.get('id');
 const chapterId = urlParams.get('chapter');
+const viewParam = urlParams.get('view');
+const searchParam = urlParams.get('search');
+
+// Search Function Form Handler (Dipanggil dari UI Desktop di HTML)
+window.submitSearch = function() {
+    const query = document.getElementById('searchInput').value.trim();
+    if(query) {
+        window.location.href = `?search=${encodeURIComponent(query)}`;
+    }
+};
 
 // Helper: Fetch Data with CACHING System
 async function fetchApi(endpoint, cacheKey = null, cacheTimeMinutes = 10) {
@@ -30,10 +41,7 @@ async function fetchApi(endpoint, cacheKey = null, cacheTimeMinutes = 10) {
         const json = await response.json();
         
         if (cacheKey) {
-            const cacheData = {
-                data: json,
-                expiry: new Date().getTime() + (cacheTimeMinutes * 60 * 1000)
-            };
+            const cacheData = { data: json, expiry: new Date().getTime() + (cacheTimeMinutes * 60 * 1000) };
             localStorage.setItem(cacheKey, JSON.stringify(cacheData));
         }
         return json;
@@ -43,28 +51,44 @@ async function fetchApi(endpoint, cacheKey = null, cacheTimeMinutes = 10) {
     }
 }
 
-// Helper: Get Cover URL (Aman dari error jika API gagal memuat gambar)
+// Helper: Get Cover URL (Rasio & Ukuran Optimal)
 function getCoverUrl(mangaId, relationships) {
-    // Fallback keamanan jika relationships kosong
     if (!relationships || !Array.isArray(relationships)) return 'https://placehold.co/300x450?text=No+Cover';
-    
     const coverArt = relationships.find(rel => rel.type === 'cover_art');
     if (coverArt && coverArt.attributes && coverArt.attributes.fileName) {
+        // Menggunakan .512.jpg agar file ringan
         const coverUrl = `${BASE_UPLOAD}/covers/${mangaId}/${coverArt.attributes.fileName}.512.jpg`;
         return PROXY_URL + encodeURIComponent(coverUrl);
     }
     return 'https://placehold.co/300x450?text=No+Cover';
 }
 
+// Helper: Ekstrak Judul
+function getTitle(manga) {
+    return manga.attributes.title.en || manga.attributes.title['ja-ro'] || manga.attributes.title.id || 'No Title';
+}
+
 // --- INIT ROUTING ---
 async function init() {
     try {
+        // Tempel teks pencarian ke kotak input jika ada di URL
+        if (searchParam) {
+            const searchInput = document.getElementById('searchInput');
+            if(searchInput) searchInput.value = searchParam;
+        }
+
         if (chapterId) {
             await renderReader(chapterId);
         } else if (mangaId) {
             await renderDetail(mangaId);
+        } else if (searchParam) {
+            await renderList('search', searchParam);
+        } else if (viewParam === 'popular') {
+            await renderList('popular');
+        } else if (viewParam === 'latest') {
+            await renderList('latest');
         } else {
-            await renderHome();
+            await renderHome(); // Default: Beranda
         }
     } catch (error) {
         appContainer.innerHTML = `
@@ -72,7 +96,7 @@ async function init() {
                 <i class="fas fa-exclamation-triangle text-4xl mb-4"></i>
                 <h3 class="text-xl font-bold">Koneksi Gagal</h3>
                 <p class="mt-2 text-gray-400">Gagal mengambil data dari server.</p>
-                <button onclick="localStorage.clear(); location.reload();" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-500">Bersihkan Cache & Reload</button>
+                <button onclick="localStorage.clear(); location.reload();" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-500 transition">Bersihkan Cache & Reload</button>
             </div>
         `;
     }
@@ -81,31 +105,60 @@ async function init() {
 // --- 1. HOMEPAGE ---
 async function renderHome() {
     appContainer.innerHTML = `<div class="flex justify-center items-center h-64"><div class="loader ease-linear rounded-full border-4 border-t-4 border-blue-500 h-12 w-12"></div></div>`;
+    const data = await fetchApi('/manga?includes[]=cover_art&availableTranslatedLanguage[]=id&order[updatedAt]=desc&limit=20', 'home_manga', 15);
+    buildGridUI("Rekomendasi Hari Ini (Bahasa Indonesia)", data.data);
+}
 
-    const data = await fetchApi('/manga?includes[]=cover_art&availableTranslatedLanguage[]=id&order[updatedAt]=desc&limit=16', 'home_manga', 15);
+// --- 1.b DAFTAR MANGA DINAMIS (SEARCH, POPULAR, LATEST) ---
+async function renderList(type, query = '') {
+    appContainer.innerHTML = `<div class="flex justify-center items-center h-64"><div class="loader ease-linear rounded-full border-4 border-t-4 border-blue-500 h-12 w-12"></div></div>`;
     
-    let html = `
-        <h2 class="text-2xl font-bold mb-6 border-l-4 border-blue-500 pl-3">Update Terbaru (Bahasa Indonesia)</h2>
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-    `;
+    let endpoint = '';
+    let titleHeader = '';
+    let cacheKey = null;
 
-    data.data.forEach(manga => {
-        const title = manga.attributes.title.en || manga.attributes.title['ja-ro'] || manga.attributes.title.id || 'No Title';
-        const cover = getCoverUrl(manga.id, manga.relationships);
-        
-        html += `
-            <a href="?id=${manga.id}" class="manga-card group relative bg-gray-800 rounded-lg overflow-hidden shadow-lg transition-transform transform hover:-translate-y-1">
-                <div class="w-full aspect-[9/16] relative overflow-hidden">
-                    <img src="${cover}" alt="${title}" loading="lazy" class="w-full h-full object-cover object-center group-hover:scale-110 transition-transform duration-300">
-                </div>
-                <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-gray-900 via-gray-900/80 to-transparent p-3">
-                    <h3 class="font-semibold text-sm line-clamp-2 text-white leading-tight">${title}</h3>
-                </div>
-            </a>
-        `;
-    });
+    if (type === 'search') {
+        endpoint = `/manga?title=${encodeURIComponent(query)}&includes[]=cover_art&order[relevance]=desc&limit=20`;
+        titleHeader = `Hasil Pencarian: "${query}"`;
+    } else if (type === 'popular') {
+        endpoint = `/manga?includes[]=cover_art&availableTranslatedLanguage[]=id&order[rating]=desc&limit=20`;
+        titleHeader = `Komik Populer`;
+        cacheKey = 'list_popular';
+    } else if (type === 'latest') {
+        endpoint = `/manga?includes[]=cover_art&availableTranslatedLanguage[]=id&order[latestUploadedChapter]=desc&limit=20`;
+        titleHeader = `Chapter Terbaru (Update)`;
+        cacheKey = 'list_latest';
+    }
 
-    html += `</div>`;
+    const data = await fetchApi(endpoint, cacheKey, 30);
+    buildGridUI(titleHeader, data.data);
+}
+
+// Helper: Membangun HTML Grid
+function buildGridUI(headerTitle, mangaArray) {
+    let html = `<h2 class="text-2xl font-bold mb-6 border-l-4 border-blue-500 pl-3">${headerTitle}</h2>`;
+    
+    if (mangaArray.length === 0) {
+        html += `<div class="bg-gray-800 p-8 rounded-lg text-center text-gray-400 shadow-lg">Tidak ada komik yang ditemukan.</div>`;
+    } else {
+        html += `<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">`;
+        mangaArray.forEach(manga => {
+            const title = getTitle(manga);
+            const cover = getCoverUrl(manga.id, manga.relationships);
+            
+            html += `
+                <a href="?id=${manga.id}" class="manga-card group relative bg-gray-800 rounded-lg overflow-hidden shadow-lg transition-transform transform hover:-translate-y-1">
+                    <div class="w-full aspect-[9/16] relative overflow-hidden">
+                        <img src="${cover}" alt="${title}" loading="lazy" class="w-full h-full object-cover object-center group-hover:scale-110 transition-transform duration-300">
+                    </div>
+                    <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-gray-900 via-gray-900/80 to-transparent p-3">
+                        <h3 class="font-semibold text-sm line-clamp-2 text-white leading-tight">${title}</h3>
+                    </div>
+                </a>
+            `;
+        });
+        html += `</div>`;
+    }
     appContainer.innerHTML = html;
 }
 
@@ -113,7 +166,6 @@ async function renderHome() {
 async function renderDetail(id) {
     appContainer.innerHTML = `<div class="flex justify-center items-center h-64"><div class="loader ease-linear rounded-full border-4 border-t-4 border-blue-500 h-12 w-12"></div></div>`;
 
-    // Perbaikan: Parameter includes dipisah menggunakan "&" agar terbaca oleh server MangaDex
     const [mangaData, chapterData, relatedData] = await Promise.all([
         fetchApi(`/manga/${id}?includes[]=cover_art&includes[]=author&includes[]=artist`, `manga_detail_${id}`, 60),
         fetchApi(`/manga/${id}/feed?translatedLanguage[]=id&order[chapter]=desc&limit=100`, `manga_chapters_${id}`, 10),
@@ -121,7 +173,7 @@ async function renderDetail(id) {
     ]);
 
     const manga = mangaData.data;
-    const title = manga.attributes.title.en || manga.attributes.title['ja-ro'] || 'No Title';
+    const title = getTitle(manga);
     const desc = manga.attributes.description.id || manga.attributes.description.en || 'Tidak ada sinopsis tersedia.';
     const cover = getCoverUrl(manga.id, manga.relationships);
     const status = manga.attributes.status || 'Unknown';
@@ -129,7 +181,6 @@ async function renderDetail(id) {
 
     let html = `
         <div class="flex flex-col md:flex-row gap-8 bg-gray-800 p-6 rounded-xl shadow-lg mb-10">
-            <!-- Perbaikan UI Gambar: Responsif, ke tengah jika di HP, dan tidak memenuhi layar -->
             <div class="w-full md:w-64 flex-shrink-0 flex justify-center md:block">
                 <img src="${cover}" alt="${title}" class="w-2/3 md:w-full max-w-[250px] md:max-w-none aspect-[3/4] rounded-lg shadow-md object-cover">
             </div>
@@ -179,7 +230,7 @@ async function renderDetail(id) {
     `;
 
     relatedData.data.forEach(rel => {
-        const relTitle = rel.attributes.title.en || rel.attributes.title['ja-ro'] || 'No Title';
+        const relTitle = getTitle(rel);
         const relCover = getCoverUrl(rel.id, rel.relationships);
         html += `
             <a href="?id=${rel.id}" class="flex items-center gap-4 bg-gray-800 p-2 rounded-lg hover:bg-gray-700 transition">
@@ -204,7 +255,6 @@ async function renderReader(chapterId) {
     const chapterHash = serverData.chapter.hash;
     const images = serverData.chapter.data;
 
-    // Komponen Navigasi Baca (Digunakan di Atas dan Bawah, dan Tidak Pop-Up)
     const readerNavHtml = `
         <div class="flex justify-between items-center bg-gray-800 p-3 md:p-4 rounded-lg shadow-lg">
             <a href="javascript:history.back()" class="bg-gray-700 hover:bg-gray-600 px-3 md:px-4 py-2 rounded text-xs md:text-sm text-white transition flex items-center"><i class="fas fa-arrow-left mr-2"></i> Kembali</a>
@@ -214,12 +264,7 @@ async function renderReader(chapterId) {
     `;
 
     let html = `
-        <!-- Navigasi ATAS -->
-        <div class="mb-4">
-            ${readerNavHtml}
-        </div>
-        
-        <!-- Kontainer Gambar -->
+        <div class="mb-4">${readerNavHtml}</div>
         <div class="max-w-3xl mx-auto flex flex-col items-center bg-[#000] p-0 md:p-1 rounded shadow-2xl overflow-hidden">
     `;
 
@@ -231,11 +276,7 @@ async function renderReader(chapterId) {
 
     html += `
         </div>
-
-        <!-- Navigasi BAWAH -->
-        <div class="mt-4 mb-8">
-            ${readerNavHtml}
-        </div>
+        <div class="mt-4 mb-8">${readerNavHtml}</div>
     `;
     
     appContainer.innerHTML = html;
